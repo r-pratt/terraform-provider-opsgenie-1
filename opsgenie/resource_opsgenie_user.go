@@ -101,6 +101,29 @@ func resourceOpsGenieUser() *schema.Resource {
 	}
 }
 
+//func generateUserPayload(d *schema.ResourceData) *user.User {
+//	user := &user.User{
+//		Username: d.Get("username").(string),
+//		FullName: d.Get("fullname").(string),
+//		Role: 	&user.UserRole{
+//			RoleName: d.Get("role").(string),
+//		},
+//	}
+//
+//	if value, exists := d.GetOk("locale"); exists{
+//		user.Locale = value.(string)
+//	}
+//	if value, exists := d.GetOk("timezone"); exists{
+//		user.TimeZone = value.(string)
+//	}
+//	if value, exists := d.GetOk("tags"); exists{
+//		user.Tags = expandOpsGenieUsertags(value.(*schema.Set))
+//	}
+//	if value, exists := d.GetOk("user_address"); exists{
+//		user.UserAddress = expandOpsGenieUserAddress(value.(*schema.ResourceData))
+//	}
+//}
+
 func checkTimeZoneDiff(k, old, new string, d *schema.ResourceData) bool {
 	locationOld, errOld := time.LoadLocation(old)
 	if errOld != nil {
@@ -166,7 +189,6 @@ func expandOpsGenieUserDetails(d *schema.ResourceData) map[string][]string {
 }
 
 func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error {
-
 	client, err := user.NewClient(meta.(*OpsgenieClient).client.Config)
 	if err != nil {
 		return err
@@ -250,9 +272,6 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 	username := d.Get("username").(string)
 	fullName := d.Get("full_name").(string)
 	role := d.Get("role").(string)
-	locale := d.Get("locale").(string)
-	timeZone := d.Get("timezone").(string)
-	tags := expandOpsGenieUsertags(d.Get("tags").(*schema.Set))
 	userAddress := expandOpsGenieUserAddress(d)
 	userDetails := expandOpsGenieUserDetails(d)
 	skypeUsername := d.Get("skype_username").(string)
@@ -265,9 +284,6 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 		Role: &user.UserRoleRequest{
 			RoleName: role,
 		},
-		Locale:   locale,
-		TimeZone: timeZone,
-		Tags:     tags,
 		UserAddressRequest: &user.UserAddressRequest{
 			Country: userAddress["country"],
 			State:   userAddress["state"],
@@ -278,7 +294,15 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 		Details:       userDetails,
 		SkypeUsername: skypeUsername,
 	}
-
+	if value, exists := d.GetOk("locale"); exists {
+		updateRequest.Locale = value.(string)
+	}
+	if value, exists := d.GetOk("timezone"); exists {
+		updateRequest.TimeZone = value.(string)
+	}
+	if value, exists := d.GetOk("tags"); exists {
+		updateRequest.Tags = expandOpsGenieUsertags(value.(*schema.Set))
+	}
 	_, err = client.Update(context.Background(), updateRequest)
 	if err != nil {
 		return err
