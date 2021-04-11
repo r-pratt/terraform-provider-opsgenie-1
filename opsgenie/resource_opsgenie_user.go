@@ -284,7 +284,7 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	return nil
+	return resourceOpsGenieUserRead(d, meta)
 }
 
 func resourceOpsGenieUserDelete(d *schema.ResourceData, meta interface{}) error {
