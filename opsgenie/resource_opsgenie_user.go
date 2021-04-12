@@ -42,12 +42,12 @@ func resourceOpsGenieUser() *schema.Resource {
 			"locale": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "en_US",
+				Computed: true,
 			},
 			"timezone": {
 				Type:             schema.TypeString,
 				Optional:         true,
-				Default:          "America/New_York",
+				Computed:         true,
 				DiffSuppressFunc: checkTimeZoneDiff,
 			},
 			"tags": {
@@ -101,6 +101,42 @@ func resourceOpsGenieUser() *schema.Resource {
 	}
 }
 
+func checkOptionalProperties(d *schema.ResourceData) *user.User {
+	var userAddrStruct user.UserAddress
+	if _, exists := d.GetOk("user_address"); exists {
+		address := expandOpsGenieUserAddress(d)
+		userAddrStruct.State = address["state"]
+		userAddrStruct.City = address["city"]
+		userAddrStruct.Country = address["country"]
+		userAddrStruct.Line = address["line"]
+		userAddrStruct.ZipCode = address["zipcode"]
+	}
+
+	u := &user.User{
+		Username: d.Get("username").(string),
+		FullName: d.Get("full_name").(string),
+		Role: &user.UserRole{
+			RoleName: d.Get("role").(string),
+		},
+		UserAddress: &userAddrStruct,
+	}
+
+	if value, exists := d.GetOk("locale"); exists {
+		u.Locale = value.(string)
+	}
+	if value, exists := d.GetOk("timezone"); exists {
+		u.TimeZone = value.(string)
+	}
+	if value, exists := d.GetOk("tags"); exists {
+		u.Tags = expandOpsGenieUsertags(value.(*schema.Set))
+	}
+
+	if _, exists := d.GetOk("user_details"); exists {
+		u.Details = expandOpsGenieUserDetails(d)
+	}
+	return u
+}
+
 func checkTimeZoneDiff(k, old, new string, d *schema.ResourceData) bool {
 	locationOld, errOld := time.LoadLocation(old)
 	if errOld != nil {
@@ -115,6 +151,7 @@ func checkTimeZoneDiff(k, old, new string, d *schema.ResourceData) bool {
 	timeNew := now.In(locationNew)
 	return timeOld.Format(time.ANSIC) == timeNew.Format(time.ANSIC)
 }
+
 func expandOpsGenieUsertags(input *schema.Set) []string {
 	output := make([]string, 0)
 
@@ -146,7 +183,6 @@ func expandOpsGenieUserAddress(d *schema.ResourceData) map[string]string {
 		output["zipcode"] = config["zipcode"].(string)
 
 	}
-
 	return output
 }
 
@@ -166,42 +202,38 @@ func expandOpsGenieUserDetails(d *schema.ResourceData) map[string][]string {
 }
 
 func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error {
-
 	client, err := user.NewClient(meta.(*OpsgenieClient).client.Config)
 	if err != nil {
 		return err
 	}
-	username := d.Get("username").(string)
-	fullName := d.Get("full_name").(string)
-	role := d.Get("role").(string)
-	locale := d.Get("locale").(string)
-	timeZone := d.Get("timezone").(string)
-	tags := expandOpsGenieUsertags(d.Get("tags").(*schema.Set))
-	userAddress := expandOpsGenieUserAddress(d)
-	userDetails := expandOpsGenieUserDetails(d)
-	skypeUsername := d.Get("skype_username").(string)
+
+	u := checkOptionalProperties(d)
+
+	var skypeUsername string
+	if value, exists := d.GetOk("skype_username"); exists {
+		skypeUsername = value.(string)
+	}
 
 	createRequest := &user.CreateRequest{
-		Username: username,
-		FullName: fullName,
+		Username: u.Username,
+		FullName: u.FullName,
 		Role: &user.UserRoleRequest{
-			RoleName: role,
+			RoleName: u.Role.RoleName,
 		},
-		Locale:   locale,
-		TimeZone: timeZone,
-		Tags:     tags,
+		Locale:   u.Locale,
+		TimeZone: u.TimeZone,
+		Tags:     u.Tags,
 		UserAddressRequest: &user.UserAddressRequest{
-			Country: userAddress["country"],
-			State:   userAddress["state"],
-			City:    userAddress["city"],
-			Line:    userAddress["line"],
-			ZipCode: userAddress["zipcode"],
+			State:   u.UserAddress.State,
+			City:    u.UserAddress.City,
+			Line:    u.UserAddress.Line,
+			ZipCode: u.UserAddress.ZipCode,
 		},
-		Details:       userDetails,
+		Details:       u.Details,
 		SkypeUsername: skypeUsername,
 	}
 
-	log.Printf("[INFO] Creating OpsGenie user '%s'", username)
+	log.Printf("[INFO] Creating OpsGenie user '%s'", u.Username)
 	result, err := client.Create(context.Background(), createRequest)
 	if err != nil {
 		return err
@@ -247,44 +279,42 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
-	username := d.Get("username").(string)
-	fullName := d.Get("full_name").(string)
-	role := d.Get("role").(string)
-	locale := d.Get("locale").(string)
-	timeZone := d.Get("timezone").(string)
-	tags := expandOpsGenieUsertags(d.Get("tags").(*schema.Set))
-	userAddress := expandOpsGenieUserAddress(d)
-	userDetails := expandOpsGenieUserDetails(d)
-	skypeUsername := d.Get("skype_username").(string)
+	
+	u := checkOptionalProperties(d)
+	
+	var skypeUsername string
+	if value, exists := d.GetOk("skype_username"); exists {
+		skypeUsername = value.(string)
+	}
 
-	log.Printf("[INFO] Updating OpsGenie user '%s'", username)
+	log.Printf("[INFO] Updating OpsGenie user '%s'", u.Username)
 
 	updateRequest := &user.UpdateRequest{
 		Identifier: d.Id(),
-		FullName:   fullName,
+		Username:   u.Username,
+		FullName:   u.FullName,
 		Role: &user.UserRoleRequest{
-			RoleName: role,
+			RoleName: u.Role.RoleName,
 		},
-		Locale:   locale,
-		TimeZone: timeZone,
-		Tags:     tags,
+		Locale:   u.Locale,
+		TimeZone: u.TimeZone,
+		Tags:     u.Tags,
 		UserAddressRequest: &user.UserAddressRequest{
-			Country: userAddress["country"],
-			State:   userAddress["state"],
-			City:    userAddress["city"],
-			Line:    userAddress["line"],
-			ZipCode: userAddress["zipcode"],
+			Country: u.UserAddress.Country,
+			State:   u.UserAddress.State,
+			City:    u.UserAddress.City,
+			Line:    u.UserAddress.Line,
+			ZipCode: u.UserAddress.ZipCode,
 		},
-		Details:       userDetails,
+		Details:       u.Details,
 		SkypeUsername: skypeUsername,
 	}
-
 	_, err = client.Update(context.Background(), updateRequest)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return resourceOpsGenieUserRead(d, meta)
 }
 
 func resourceOpsGenieUserDelete(d *schema.ResourceData, meta interface{}) error {

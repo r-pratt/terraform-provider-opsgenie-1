@@ -73,6 +73,23 @@ func TestAccOpsGenieUser_basic(t *testing.T) {
 	})
 }
 
+func TestCheckOptionalProperties(t *testing.T) {
+	rs := acctest.RandString(6)
+	config := testAccOpsGenieUser_complete(rs)
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testCheckOpsGenieUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpsGenieUserExists("opsgenie_user.test"),
+				),
+			},
+		},
+	})
+}
+
 func TestCheckTimeZoneDiff(t *testing.T) {
 	oldTimeZone := "America/Los_Angeles"
 	newTimeZone := "Canada/Pacific"
