@@ -210,7 +210,7 @@ func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error 
 	u := checkOptionalProperties(d)
 
 	var skypeUsername string
-	if value, exists := d.GetOk("user_details"); exists {
+	if value, exists := d.GetOk("skype_username"); exists {
 		skypeUsername = value.(string)
 	}
 
@@ -279,8 +279,13 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
+	
 	u := checkOptionalProperties(d)
-	skypeUsername := d.Get("skype_username").(string)
+	
+	var skypeUsername string
+	if value, exists := d.GetOk("skype_username"); exists {
+		skypeUsername = value.(string)
+	}
 
 	log.Printf("[INFO] Updating OpsGenie user '%s'", u.Username)
 
