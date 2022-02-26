@@ -164,7 +164,7 @@ func resourceOpsGenieTeamUpdate(d *schema.ResourceData, meta interface{}) error 
 		Description: description,
 	}
 
-	if len(d.Get("member").([]interface{})) > 0 && !d.Get("ignore_members").(bool) {
+	if !d.Get("ignore_members").(bool) {
 		updateRequest.Members = expandOpsGenieTeamMembers(d)
 	}
 
